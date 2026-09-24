@@ -1,0 +1,12 @@
+const money = value => `฿${Number(value).toLocaleString("th-TH")}`;
+
+export default function BagDrawer({ items, onClose, onChange, onCheckout }) {
+  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
+  const delivery = subtotal >= 1500 ? 0 : 50;
+  return <aside className="fixed inset-0 z-50 flex justify-end bg-ink/60" onMouseDown={onClose}>
+    <section className="h-full w-full max-w-md overflow-y-auto bg-paper p-6 md:p-8" onMouseDown={event => event.stopPropagation()}>
+      <div className="flex justify-between border-b-2 border-ink pb-5"><div><p className="text-[10px] tracking-[.2em]">YOUR SELECTION</p><h2 className="mt-2 font-display text-5xl">BAG</h2></div><button className="text-4xl leading-none" onClick={onClose}>×</button></div>
+      {!items.length ? <p className="py-12 text-sm">Your bag is waiting for its first piece.</p> : <><div className="divide-y divide-ink">{items.map(item => <article className="flex gap-4 py-5" key={`${item.id}-${item.size}`}><div className="grid h-20 w-16 place-items-center bg-sage font-display text-lg">24</div><div className="flex-1"><h3 className="font-display text-2xl">{item.name}</h3><p className="text-[10px]">SIZE {item.size}</p><p className="mt-1 text-sm">{money(item.price)}</p><div className="mt-3 flex items-center gap-3"><button className="border border-ink px-2" onClick={() => onChange(items.map(x => x.id === item.id && x.size === item.size ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x))}>−</button><span className="text-xs">{item.quantity}</span><button className="border border-ink px-2" onClick={() => onChange(items.map(x => x.id === item.id && x.size === item.size ? { ...x, quantity: x.quantity + 1 } : x))}>+</button><button className="ml-auto text-[10px] underline" onClick={() => onChange(items.filter(x => x.id !== item.id || x.size !== item.size))}>REMOVE</button></div></div></article>)}</div><div className="mt-4 border-t-2 border-ink pt-4 text-sm"><p className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></p><p className="mt-2 flex justify-between"><span>Delivery</span><span>{delivery ? money(delivery) : "FREE"}</span></p><p className="mt-3 flex justify-between font-display text-3xl"><span>TOTAL</span><span>{money(subtotal + delivery)}</span></p></div><button className="mt-6 w-full bg-ink py-4 text-xs text-paper" onClick={onCheckout}>CHECK OUT →</button></>}
+    </section>
+  </aside>;
+}

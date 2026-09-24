@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Oswald:wght@500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base { body { @apply bg-paper text-ink font-mono; } button { @apply font-mono; } }
+@layer components { .outline { @apply border-2 border-ink; } .tag { @apply border border-ink px-3 py-2 text-[10px] tracking-wider; } }
+
+.ticker { overflow: hidden; white-space: nowrap; }
+.ticker > div { display: inline-block; min-width: 100%; animation: ticker 22s linear infinite; }
+.depth-hero { --depth: 0; perspective: 900px; }
+.depth-photo { transform: scale(calc(1.08 + var(--depth) * .035)) translateY(calc(var(--depth) * 38px)); will-change: transform; }
+.depth-title { transform: translateY(calc(var(--depth) * -64px)); will-change: transform; }
+.depth-badge { transform: rotate(calc(-10deg + var(--depth) * 12deg)) translateY(calc(var(--depth) * 20px)); will-change: transform; }
+@keyframes ticker { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
