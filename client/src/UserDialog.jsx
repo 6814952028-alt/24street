@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 export default function UserDialog({ onClose, onSignedIn }) {
   const [mode, setMode] = useState("login");
@@ -14,8 +14,17 @@ export default function UserDialog({ onClose, onSignedIn }) {
       const path = mode === "login" ? "/api/users/login" : "/api/users/register";
       const body = mode === "login" ? { email: form.email, password: form.password } : form;
       const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Unable to continue");
+      const responseText = await response.text();
+      let data = {};
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(`Account service returned an invalid response (HTTP ${response.status})`);
+        }
+      }
+      if (!response.ok) throw new Error(data.message || `Unable to continue (HTTP ${response.status})`);
+      if (!data.token || !data.user) throw new Error(`Account service returned an incomplete response (HTTP ${response.status})`);
       localStorage.setItem("24street_token", data.token);
       onSignedIn(data.user);
     } catch (err) { setError(err.message); } finally { setLoading(false); }

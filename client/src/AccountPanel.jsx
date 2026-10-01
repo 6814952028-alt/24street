@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import UserDialog from "./UserDialog";
 import ProductAdminPanel from "./ProductAdminPanel";
 
-const api = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const api = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "");
 const headers = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("24street_token")}` });
 
 export default function AccountPanel({ user, onClose, onSignedIn, onLogout }) {

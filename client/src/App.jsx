@@ -76,7 +76,7 @@ function ProductDialog({ product, onClose, onAdd }) {
 export default function App() {
   const [filter, setFilter] = useState("All"); const [selected, setSelected] = useState(null); const [bag, setBag] = useState(0); const [bagOpen, setBagOpen] = useState(false); const [accountOpen, setAccountOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false); const [user, setUser] = useState(() => stored("24street_user", null)); const [products, setProducts] = useState(fallbackProducts); const [bagItems, setBagItems] = useState(() => stored("24street_bag", []));
   const loadProducts = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "");
+    const apiUrl = "https://two4street.onrender.com";
     return fetch(`${apiUrl}/api/products`).then(response => response.ok ? response.json() : Promise.reject()).then(data => {
       if (!data.length) return;
       setProducts(data.map((product, index) => ({

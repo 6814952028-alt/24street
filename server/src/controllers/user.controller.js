@@ -26,18 +26,20 @@ const createToken = user => {
 
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone } = req.body;
-    const exists = await User.exists({ email: email?.toLowerCase() });
+    const { name, password, phone } = req.body;
+    const normalizedEmail = String(req.body.email || "").trim().toLowerCase();
+    const exists = await User.exists({ email: normalizedEmail });
     if (exists) return res.status(409).json({ message: "This email is already registered" });
-    const user = await User.create({ name, email, password, phone });
+    const user = await User.create({ name, email: normalizedEmail, password, phone });
     res.status(201).json({ token: createToken(user), user: publicUser(user) });
   } catch (error) { next(error); }
 };
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase() }).select("+password +tokenVersion");
+    const { password } = req.body;
+    const normalizedEmail = String(req.body.email || "").trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail }).select("+password +tokenVersion");
     if (!user || !(await user.isPasswordCorrect(password || ""))) {
       return res.status(401).json({ message: "Email or password is incorrect" });
     }
