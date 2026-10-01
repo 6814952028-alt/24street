@@ -7,7 +7,11 @@
 @layer components { .outline { @apply border-2 border-ink; } .tag { @apply border border-ink px-3 py-2 text-[10px] tracking-wider; } }
 
 .ticker { overflow: hidden; white-space: nowrap; }
-.ticker > div { display: inline-block; min-width: 100%; animation: ticker 22s linear infinite; }
+.ticker-track { display: flex; width: max-content; animation: ticker 28s linear infinite; }
+.ticker-group { flex: 0 0 auto; padding-right: 2rem; }
+.ticker-group span { display: inline-block; font-family: Oswald, sans-serif; font-size: 1.1rem; letter-spacing: .16em; }
+.ticker-group b { margin: 0 1.2rem; font-size: .7em; font-weight: 400; }
+.ticker:hover .ticker-track { animation-play-state: paused; }
 .depth-hero { --depth: 0; perspective: 900px; }
 .depth-photo { transform: scale(calc(1.08 + var(--depth) * .035)) translateY(calc(var(--depth) * 38px)); will-change: transform; }
 .depth-title { transform: translateY(calc(var(--depth) * -64px)); will-change: transform; }
