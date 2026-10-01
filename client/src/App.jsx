@@ -15,13 +15,27 @@ const fallbackProducts = [
 ];
 
 function Garment({ product, large = false }) {
+  if (product.images && product.images.length > 0) {
+    return (
+      <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#ece6dd]">
+        <img
+          src={product.images[0]}
+          alt={product.name}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      </div>
+    );
+  }
+
   const pants = product.category === "Baggies";
-  return <div className={`relative flex h-full items-center justify-center overflow-hidden ${product.color}`}>
-    <div className={`absolute top-[13%] h-10 w-10 rounded-t-full border-2 border-ink border-b-0 ${large ? "scale-125" : ""}`} />
-    <div style={{ backgroundColor: product.tone }} className={`relative mt-12 border-2 border-ink shadow-[7px_7px_0_#151515] ${pants ? "h-[62%] w-[48%] [clip-path:polygon(15%_0,85%_0,98%_100%,56%_100%,50%_42%,44%_100%,2%_100%)]" : "h-[54%] w-[58%] [clip-path:polygon(24%_0,76%_0,87%_13%,100%_21%,88%_43%,78%_37%,78%_100%,22%_100%,22%_37%,12%_43%,0_21%,13%_13%)]"}`}>
-      {product.category === "Hoodies" && <span className="absolute left-0 right-0 top-[45%] text-center font-display text-2xl text-paper">24</span>}
+  return (
+    <div className={`relative flex h-full items-center justify-center overflow-hidden ${product.color}`}>
+      <div className={`absolute top-[13%] h-10 w-10 rounded-t-full border-2 border-ink border-b-0 ${large ? "scale-125" : ""}`} />
+      <div style={{ backgroundColor: product.tone }} className={`relative mt-12 border-2 border-ink shadow-[7px_7px_0_#151515] ${pants ? "h-[62%] w-[48%] [clip-path:polygon(15%_0,85%_0,98%_100%,56%_100%,50%_42%,44%_100%,2%_100%)]" : "h-[54%] w-[58%] [clip-path:polygon(24%_0,76%_0,87%_13%,100%_21%,88%_43%,78%_37%,78%_100%,22%_100%,22%_37%,12%_43%,0_21%,13%_13%)]"}`}>
+        {product.category === "Hoodies" && <span className="absolute left-0 right-0 top-[45%] text-center font-display text-2xl text-paper">24</span>}
+      </div>
     </div>
-  </div>;
+  );
 }
 
 function DepthHero({ onShop, onMenu }) {
@@ -95,7 +109,6 @@ export default function App() {
     loadProducts();
   }, []);
   useEffect(() => { localStorage.setItem("24street_bag", JSON.stringify(bagItems)); }, [bagItems]);
-  // Admins land in the single management workspace immediately after sign-in or refresh.
   useEffect(() => { if (user?.role === "admin") setAccountOpen(true); }, [user]);
   const filters = ["All", "Tees", "Baggies", "Hoodies"];
   const shown = products.filter(product => matchesCategory(product, filter));
