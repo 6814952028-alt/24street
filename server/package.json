@@ -6,6 +6,8 @@
   "scripts": {
     "test": "node --test",
     "create-admin": "node src/scripts/create-admin.js",
+    "repair-catalog": "node src/scripts/repair-catalog.js",
+    "seed-catalog": "node src/scripts/seed-catalog.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },

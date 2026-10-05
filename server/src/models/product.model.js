@@ -13,13 +13,15 @@ const variantSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    nameEn: { type: String, trim: true, maxlength: 120 },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     category: {
       type: String,
       required: true,
-      enum: ["t-shirts", "baggy-pants", "hoodies", "jackets", "accessories"],
+      enum: ["t-shirts", "baggy-pants", "hoodies", "sweatshirts", "shorts", "bags", "headwear", "underwear", "jackets", "accessories"],
       index: true,
     },
+    categoryTh: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
     description: { type: String, required: true, trim: true, maxlength: 2000 },

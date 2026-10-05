@@ -69,7 +69,7 @@ export default function ProductAdminPanel() {
       <p className="font-display text-2xl md:col-span-2">{editing ? "EDIT PRODUCT" : "ADD PRODUCT"}</p>
       <label className="text-[10px]">NAME<input required name="name" value={form.name} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
       <label className="text-[10px]">SLUG<input required name="slug" value={form.slug} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
-      <label className="text-[10px]">CATEGORY<select name="category" value={form.category} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm">{["t-shirts", "baggy-pants", "hoodies", "jackets", "accessories"].map(x => <option key={x}>{x}</option>)}</select></label>
+      <label className="text-[10px]">CATEGORY<select name="category" value={form.category} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm">{["t-shirts", "hoodies", "sweatshirts", "baggy-pants", "shorts", "bags", "headwear", "underwear", "jackets", "accessories"].map(x => <option key={x}>{x}</option>)}</select></label>
       <label className="text-[10px]">PRICE (THB)<input required min="0" type="number" name="price" value={form.price} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
       <label className="text-[10px]">SALE PRICE<input min="0" type="number" name="compareAtPrice" value={form.compareAtPrice || ""} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
       <label className="flex items-end gap-2 pb-2 text-xs"><input type="checkbox" name="featured" checked={form.featured} onChange={update} /> FEATURED</label>

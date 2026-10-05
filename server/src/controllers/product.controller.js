@@ -1,9 +1,20 @@
 const Product = require("../models/product.model");
 
+const categoryAliases = {
+  tee: "t-shirts", tees: "t-shirts", tshirt: "t-shirts", tshirts: "t-shirts", "t-shirt": "t-shirts", "t-shirts": "t-shirts",
+  hoodie: "hoodies", hoodies: "hoodies", sweatshirt: "sweatshirts", sweatshirts: "sweatshirts", "sweat-shirt": "sweatshirts", "sweat-shirts": "sweatshirts",
+  pant: "baggy-pants", pants: "baggy-pants", baggy: "baggy-pants", baggies: "baggy-pants", jeans: "baggy-pants", "baggy-pant": "baggy-pants", "baggy-pants": "baggy-pants",
+  short: "shorts", shorts: "shorts", bag: "bags", bags: "bags", cap: "headwear", caps: "headwear", hat: "headwear", hats: "headwear", headwear: "headwear", boxer: "underwear", boxers: "underwear", underwear: "underwear", accessory: "accessories", accessories: "accessories",
+};
+const normalizeCategory = value => {
+  const key = String(value || "").trim().toLowerCase().replace(/[_\s]+/g, "-");
+  return categoryAliases[key] || key;
+};
+
 const getProducts = async (req, res, next) => {
   try {
     const filter = { status: "active" };
-    if (req.query.category) filter.category = req.query.category;
+    if (req.query.category) filter.category = normalizeCategory(req.query.category);
     if (req.query.featured === "true") filter.featured = true;
     if (req.query.q) filter.$text = { $search: req.query.q };
 
@@ -52,4 +63,4 @@ const deleteProduct = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { getProducts, getProductBySlug, createProduct, getAdminProducts, updateProduct, deleteProduct };
+module.exports = { getProducts, getProductBySlug, createProduct, getAdminProducts, updateProduct, deleteProduct, normalizeCategory };
