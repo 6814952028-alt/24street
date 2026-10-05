@@ -1,6 +1,7 @@
 import { useState } from "react";
+import API_URL from "./api";
 
-const API_URL = import.meta.env.VITE_API_URL || "";
+
 
 export default function UserDialog({ onClose, onSignedIn }) {
   const [mode, setMode] = useState("login");

@@ -1,29 +1,8 @@
 const mongoose = require("mongoose");
-
-const orderItemSchema = new mongoose.Schema({
-  productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
-  name: { type: String, required: true },
-  sku: { type: String, required: true },
-  size: { type: String, required: true },
-  color: { type: String, required: true },
-  image: String,
-  unitPrice: { type: Number, required: true, min: 0 },
-  quantity: { type: Number, required: true, min: 1 },
-}, { _id: false });
-
-const addressSchema = new mongoose.Schema({
-  recipient: { type: String, required: true, trim: true }, phone: { type: String, required: true, trim: true },
-  line1: { type: String, required: true, trim: true }, district: { type: String, required: true, trim: true },
-  province: { type: String, required: true, trim: true }, postalCode: { type: String, required: true, trim: true },
-}, { _id: false });
-
-const orderSchema = new mongoose.Schema({
-  orderNumber: { type: String, required: true, unique: true, index: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  items: { type: [orderItemSchema], required: true }, shippingAddress: { type: addressSchema, required: true },
-  subtotal: { type: Number, required: true }, shippingFee: { type: Number, required: true }, total: { type: Number, required: true },
-  paymentStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
-  fulfillmentStatus: { type: String, enum: ["new", "processing", "shipped", "delivered", "cancelled"], default: "new" },
-}, { timestamps: true });
-
-module.exports = mongoose.model("Order", orderSchema);
+const itemSchema = new mongoose.Schema({ productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true }, name: { type: String, required: true }, sku: { type: String, required: true }, size: { type: String, required: true }, color: { type: String, default: "" }, image: { type: String, default: "" }, unitPrice: { type: Number, required: true, min: 0 }, quantity: { type: Number, required: true, min: 1, max: 20 } }, { _id: false });
+const addressSchema = new mongoose.Schema({ recipient: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 }, phone: { type: String, required: true, trim: true, maxlength: 24 }, email: { type: String, required: true, lowercase: true, trim: true }, line1: { type: String, required: true, trim: true, maxlength: 200 }, subdistrict: { type: String, required: true, trim: true, maxlength: 100 }, district: { type: String, required: true, trim: true, maxlength: 100 }, province: { type: String, required: true, trim: true, maxlength: 100 }, postalCode: { type: String, required: true, trim: true, match: /^\d{5}$/ } }, { _id: false });
+const paymentSchema = new mongoose.Schema({ method: { type: String, enum: ["promptpay", "card", "bank_transfer", "cod"], required: true }, stripeSessionId: { type: String, default: "" }, stripePaymentIntentId: { type: String, default: "" }, checkoutUrl: { type: String, default: "" }, transactionId: { type: String, default: "" }, transferInstructions: { type: String, default: "" }, transferSlipUrl: { type: String, default: "" }, transferSubmittedAt: Date }, { _id: false });
+const schema = new mongoose.Schema({ orderNumber: { type: String, required: true, unique: true }, idempotencyKey: { type: String, required: true }, userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true }, items: { type: [itemSchema], required: true, validate: v => v.length > 0 }, shippingAddress: { type: addressSchema, required: true }, shippingMethod: { type: String, enum: ["standard", "express", "cod"], required: true }, subtotal: { type: Number, required: true, min: 0 }, shippingFee: { type: Number, required: true, min: 0 }, total: { type: Number, required: true, min: 0 }, paymentStatus: { type: String, enum: ["pending_payment", "paid", "failed"], default: "pending_payment", index: true }, paymentDetails: { type: paymentSchema, required: true }, orderStatus: { type: String, enum: ["pending", "processing", "shipped", "delivered", "cancelled"], default: "pending", index: true }, trackingNumber: { type: String, default: "" }, inventoryReleasedAt: Date }, { timestamps: true });
+schema.index({ userId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
+schema.index({ createdAt: -1 });
+module.exports = mongoose.model("Order", schema);

@@ -3,6 +3,9 @@ const notFound = (req, res, next) => {
 };
 
 const errorHandler = (err, req, res, next) => {
+    if (err.name === "MulterError" || ["LIMIT_FILE_SIZE", "LIMIT_UNEXPECTED_FILE"].includes(err.code)) {
+        return res.status(400).json({ message: err.code === "LIMIT_FILE_SIZE" ? "Uploaded image exceeds the 5 MB limit" : "Invalid upload" });
+    }
     console.error(err.stack);
     if (err.statusCode) {
         return res.status(err.statusCode).json({ message: err.message });

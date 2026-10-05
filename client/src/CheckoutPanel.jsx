@@ -1,0 +1,51 @@
+import { useMemo, useRef, useState } from "react";
+
+import API_URL from "./api";
+const money = value => String.fromCharCode(3647) + Number(value || 0).toLocaleString("th-TH");
+const blankAddress = user => ({ recipient: user?.name || "", phone: user?.phone || "", email: user?.email || "", line1: "", subdistrict: "", district: "", province: "", postalCode: "" });
+const readError = async response => { try { return (await response.json()).message || "Request failed (HTTP " + response.status + ")"; } catch { return "Invalid checkout response (HTTP " + response.status + ")"; } };
+
+export default function CheckoutPanel({ items, user, onClose, onOrderCreated }) {
+  const [address, setAddress] = useState(() => blankAddress(user));
+  const [shippingMethod, setShippingMethod] = useState("standard");
+  const [paymentMethod, setPaymentMethod] = useState("promptpay");
+  const [busy, setBusy] = useState(false); const [slipBusy, setSlipBusy] = useState(false);
+  const [error, setError] = useState(""); const [created, setCreated] = useState(null);
+  const key = useRef(globalThis.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random()));
+  const subtotal = useMemo(() => items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [items]);
+  const delivery = shippingMethod === "express" ? 120 : shippingMethod === "cod" ? 80 : subtotal >= 1500 ? 0 : 50;
+  const update = event => setAddress(old => ({ ...old, [event.target.name]: event.target.value }));
+
+  const submit = async event => {
+    event.preventDefault(); setBusy(true); setError("");
+    try {
+      if (!items.length) throw new Error("Your bag is empty");
+      if (items.some(item => !item.sku || !/^[a-f0-9]{24}$/i.test(String(item.id)))) throw new Error("Some items are unavailable for online checkout. Refresh the catalog and add them again.");
+      const response = await fetch(API_URL + "/api/orders", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("24street_token") }, body: JSON.stringify({ items: items.map(item => ({ productId: item.id, sku: item.sku, quantity: item.quantity })), shippingAddress: address, shippingMethod, paymentMethod, idempotencyKey: key.current }) });
+      if (!response.ok) { const message = await readError(response); if (response.status === 409) key.current = globalThis.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random()); throw new Error(message); }
+      const data = await response.json();
+      if (data.checkoutUrl) { window.location.assign(data.checkoutUrl); return; }
+      onOrderCreated(data.order); setCreated(data);
+    } catch (caught) { setError(caught.message || "Could not place your order"); }
+    finally { setBusy(false); }
+  };
+
+  const uploadSlip = async event => {
+    event.preventDefault(); setError("");
+    const file = event.currentTarget.elements.slip.files[0];
+    if (!file) return setError("Choose your transfer slip first");
+    setSlipBusy(true);
+    try {
+      const body = new FormData(); body.append("slip", file);
+      const response = await fetch(API_URL + "/api/orders/" + created.order._id + "/slip", { method: "POST", headers: { Authorization: "Bearer " + localStorage.getItem("24street_token") }, body });
+      if (!response.ok) { const message = await readError(response); if (response.status === 409) key.current = globalThis.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random()); throw new Error(message); }
+      const data = await response.json(); setCreated(value => ({ ...value, order: data.order }));
+    } catch (caught) { setError(caught.message || "Could not upload the slip"); }
+    finally { setSlipBusy(false); }
+  };
+
+  if (created) return <div className="fixed inset-0 z-[65] overflow-y-auto bg-ink/60 p-4"><section className="mx-auto my-6 w-full max-w-2xl bg-paper p-6 md:p-10"><div className="flex justify-between"><div><p className="text-[10px] tracking-[.2em]">ORDER RECEIVED</p><h1 className="mt-2 font-display text-5xl">THANK YOU.</h1><p className="mt-3 text-sm">{created.order.orderNumber} / {created.order.paymentStatus.replaceAll("_", " ")}</p></div><button onClick={onClose} className="text-3xl" aria-label="Close">&#215;</button></div><div className="mt-7 space-y-2 border-y border-ink/20 py-5 text-sm"><p className="flex justify-between"><span>Subtotal</span><span>{money(created.order.subtotal)}</span></p><p className="flex justify-between"><span>Delivery</span><span>{money(created.order.shippingFee)}</span></p><p className="flex justify-between font-display text-2xl"><span>TOTAL</span><span>{money(created.order.total)}</span></p></div>{created.bankTransferInstructions && <div className="mt-6 bg-[#eee7dc] p-4"><h2 className="font-display text-2xl">BANK TRANSFER</h2><p className="mt-2 whitespace-pre-line text-sm">{created.bankTransferInstructions}</p><form onSubmit={uploadSlip} className="mt-4 grid gap-3"><label className="text-[10px]">UPLOAD SLIP (JPG / PNG / WEBP, MAX 5 MB)<input name="slip" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-xs" /></label><button disabled={slipBusy} className="w-fit bg-ink px-5 py-3 text-[10px] text-paper disabled:opacity-50">{slipBusy ? "UPLOADING..." : "UPLOAD SLIP"}</button>{created.order.paymentDetails.transferSlipUrl && <p className="text-xs">Slip sent for review.</p>}</form></div>}{created.order.paymentDetails.method === "cod" && <p className="mt-5 text-sm">Pay the courier when your order arrives.</p>}{error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}<button onClick={onClose} className="mt-7 w-full border border-ink py-3 text-xs">CONTINUE SHOPPING</button></section></div>;
+
+  const fields = [["recipient", "FULL NAME", "text"], ["phone", "PHONE", "tel"], ["email", "EMAIL", "email"], ["line1", "STREET ADDRESS", "text"], ["subdistrict", "SUBDISTRICT", "text"], ["district", "DISTRICT", "text"], ["province", "PROVINCE", "text"], ["postalCode", "POSTAL CODE", "text"]];
+  return <div className="fixed inset-0 z-[65] overflow-y-auto bg-ink/60 p-4"><section className="mx-auto my-6 w-full max-w-5xl bg-paper p-6 md:p-10"><div className="flex justify-between border-b border-ink/20 pb-5"><div><p className="text-[10px] tracking-[.2em]">24 STREET / CHECKOUT</p><h1 className="mt-2 font-display text-5xl">DELIVERY DETAILS</h1></div><button onClick={onClose} className="text-3xl" aria-label="Close">&#215;</button></div><form onSubmit={submit} className="mt-7 grid gap-8 lg:grid-cols-[1fr_340px]"><div><div className="grid gap-4 sm:grid-cols-2">{fields.map(([name, label, type]) => <label key={name} className={name === "line1" ? "text-[10px] tracking-wider sm:col-span-2" : "text-[10px] tracking-wider"}>{label}<input required name={name} type={type} value={address[name]} onChange={update} pattern={name === "phone" ? "[+0-9 ()-]{8,24}" : name === "postalCode" ? "[0-9]{5}" : undefined} maxLength={name === "postalCode" ? 5 : undefined} autoComplete={({ recipient: "name", phone: "tel", email: "email", line1: "street-address", subdistrict: "address-level3", district: "address-level2", province: "address-level1", postalCode: "postal-code" })[name]} className="mt-2 w-full border border-ink/25 bg-white/50 p-3 text-sm outline-none focus:border-ink" /></label>)}</div><fieldset className="mt-8"><legend className="text-[10px] tracking-[.2em]">SHIPPING METHOD</legend><div className="mt-3 grid gap-2 sm:grid-cols-3">{[["standard", "STANDARD", "Free over 1,500"], ["express", "EXPRESS", money(120)], ["cod", "CASH ON DELIVERY", money(80)]].map(([value, label, detail]) => <label key={value} className={`cursor-pointer border p-3 text-xs ${shippingMethod === value ? "border-ink bg-[#ece6dd]" : "border-ink/20"}`}><input type="radio" name="shippingMethod" checked={shippingMethod === value} onChange={() => { setShippingMethod(value); if (value === "cod") setPaymentMethod("cod"); else if (paymentMethod === "cod") setPaymentMethod("promptpay"); }} className="mr-2 accent-[#151515]" />{label}<span className="mt-1 block text-[10px] text-ink/60">{detail}</span></label>)}</div></fieldset><fieldset className="mt-7"><legend className="text-[10px] tracking-[.2em]">PAYMENT</legend><div className="mt-3 grid gap-2 sm:grid-cols-2">{(shippingMethod === "cod" ? [["cod", "CASH ON DELIVERY", "Pay the courier on delivery"]] : [["promptpay", "PROMPTPAY", "Secure QR checkout"], ["card", "CREDIT / DEBIT CARD", "Secure card checkout"], ["bank_transfer", "BANK TRANSFER", "Upload a transfer slip"]]).map(([value, label, detail]) => <label key={value} className={`cursor-pointer border p-3 text-xs ${paymentMethod === value ? "border-ink bg-[#ece6dd]" : "border-ink/20"}`}><input type="radio" name="paymentMethod" checked={paymentMethod === value} onChange={() => setPaymentMethod(value)} className="mr-2 accent-[#151515]" />{label}<span className="mt-1 block pl-5 text-[10px] text-ink/60">{detail}</span></label>)}</div></fieldset></div><aside className="h-fit border border-ink/15 bg-white/40 p-5"><h2 className="font-display text-3xl">YOUR ORDER</h2><div className="mt-4 max-h-56 space-y-3 overflow-y-auto border-y border-ink/15 py-4">{items.map((item, i) => <p key={item.sku + i} className="flex justify-between gap-3 text-xs"><span>{item.name} / {item.size} x {item.quantity}</span><span>{money(item.price * item.quantity)}</span></p>)}</div><div className="mt-4 space-y-2 text-xs"><p className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></p><p className="flex justify-between"><span>Delivery</span><span>{delivery ? money(delivery) : "FREE"}</span></p><p className="flex justify-between border-t border-ink/20 pt-3 font-display text-2xl"><span>TOTAL</span><span>{money(subtotal + delivery)}</span></p></div>{error && <p role="alert" className="mt-4 text-xs text-red-700">{error}</p>}<button disabled={busy || !items.length} className="mt-5 w-full bg-ink py-4 text-[10px] tracking-wider text-paper transition hover:bg-rust disabled:cursor-wait disabled:opacity-50">{busy ? "PLACING ORDER..." : "PLACE ORDER"}</button><p className="mt-3 text-[9px] leading-5 text-ink/55">Final prices and stock are confirmed by the store.</p></aside></form></section></div>;
+}

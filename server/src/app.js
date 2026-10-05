@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const cors = require("cors");
 const trackRoutes = require("./routes/track.routes");
 const productRoutes = require("./routes/product.routes");
@@ -8,12 +8,14 @@ const orderRoutes = require("./routes/order.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const { notFound, errorHandler } = require("./middlewares/error.middleware");
 const path = require("path");
+const { stripeWebhook } = require("./controllers/order.controller");
 const app = express();
 
 // 1. Global middleware
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(",") : true,
 }));
+app.post("/api/orders/payments/stripe-webhook", express.raw({ type: "application/json" }), stripeWebhook);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -26,8 +28,10 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/uploads", uploadRoutes);
 
-// 3. Error handling — must be LAST
+// 3. Error handling â€” must be LAST
 app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+
+

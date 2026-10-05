@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-const api = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "");
+import API_URL from "./api";
+const api = API_URL;
 const auth = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("24street_token")}` });
 const blank = { name: "", slug: "", category: "t-shirts", price: "", compareAtPrice: "", description: "", materials: "", care: "", images: "", variants: "", featured: false, status: "active" };
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");

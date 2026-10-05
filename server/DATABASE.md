@@ -44,3 +44,18 @@
 - `GET /api/products/:slug`
 - `POST /api/products`
 
+
+## Checkout and orders
+
+Checkout is authenticated and creates an order from product IDs, variant SKUs, and quantities. The API always reloads product prices from MongoDB, checks stock, and reserves variant stock inside a MongoDB transaction. Atlas (replica set) is required for this transaction.
+
+- `POST /api/orders` creates an order. Send `shippingAddress`, `shippingMethod`, `paymentMethod`, `items`, and a client-generated `idempotencyKey`.
+- `GET /api/orders/user` returns the signed-in customer's order history.
+- `GET /api/orders` returns orders to admins only.
+- `PATCH /api/orders/:id/status` lets admins update payment/fulfillment status and tracking.
+- `POST /api/orders/:id/slip` accepts a JPG/PNG/WebP transfer slip. Store slips in a dedicated **private** Vercel Blob store using `PAYMENT_SLIP_BLOB_TOKEN`.
+- `POST /api/orders/payments/stripe-webhook` receives Stripe Checkout webhooks and updates payment status.
+
+Payment choices are PromptPay and card through Stripe Checkout, manual transfer with private slip storage, or cash on delivery. Configure `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `APP_URL`, and optionally `BANK_TRANSFER_INSTRUCTIONS`. Configure a private Blob store token as `PAYMENT_SLIP_BLOB_TOKEN`; keep the existing public product-image store separate.
+
+Shipping: standard is 50 THB (free from 1,500 THB), express is 120 THB, and COD is 80 THB. The server calculates every total.
