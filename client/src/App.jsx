@@ -29,7 +29,7 @@ function Garment({ product, large = false }) {
       <ResilientImage
         src={product.images[0]}
         alt={product.name}
-        className="h-full w-full object-cover object-top grayscale contrast-125 transition-[filter,opacity] duration-300 group-hover:opacity-90"
+        className="h-full w-full object-cover object-top transition-[filter,opacity] duration-300 group-hover:opacity-90"
         fallback={fallback}
       />
     </div>
@@ -77,8 +77,8 @@ function CategoryMenu({ products, active, onChoose, onClose, language }) {
           <div className="order-2 md:order-1"><p className="text-[10px] tracking-[.22em]">24 STREET / PRODUCT INDEX</p><h2 className="mt-4 max-w-3xl font-display text-[clamp(60px,9vw,140px)] leading-[.72]">{t(language, "findUniform")}</h2><p className="mt-6 max-w-sm text-xs leading-6 text-black/65">{t(language, "chooseCategory")}</p></div>
           <figure className="order-1 w-full md:order-2">
             <div className="grid grid-cols-[1.1fr_.9fr] items-end gap-2 border border-black p-2 md:gap-3 md:p-3">
-              <div className="relative aspect-[3/4] overflow-hidden border border-black"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Tupac%20Shakur.png?width=900" alt="Tupac Shakur, vintage editorial portrait" className="h-full w-full object-cover object-top grayscale contrast-125" /><span className="absolute bottom-0 left-0 bg-[#F2EFE9] px-2 py-1 font-mono text-[9px]">2PAC / 1996</span></div>
-              <div className="relative aspect-[4/5] overflow-hidden border border-black"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Snoop%20Dogg%202011.jpg?width=900" alt="Snoop Dogg performing, editorial portrait" className="h-full w-full object-cover object-top grayscale contrast-125" /><span className="absolute bottom-0 left-0 bg-[#F2EFE9] px-2 py-1 font-mono text-[9px]">SNOOP / WEST COAST</span></div>
+              <div className="relative aspect-[3/4] overflow-hidden border border-black"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Tupac%20Shakur.png?width=900" alt="Tupac Shakur, vintage editorial portrait" className="h-full w-full object-cover object-top" /><span className="absolute bottom-0 left-0 bg-[#F2EFE9] px-2 py-1 font-mono text-[9px]">2PAC / 1996</span></div>
+              <div className="relative aspect-[4/5] overflow-hidden border border-black"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Snoop%20Dogg%202011.jpg?width=900" alt="Snoop Dogg performing, editorial portrait" className="h-full w-full object-cover object-top" /><span className="absolute bottom-0 left-0 bg-[#F2EFE9] px-2 py-1 font-mono text-[9px]">SNOOP / WEST COAST</span></div>
               <div className="col-span-2 border-t border-black pt-2 font-mono text-[8px] uppercase tracking-[.12em]">Archive portraits // Hip-hop is the people’s paper</div>
             </div>
             <figcaption className="mt-1 font-mono text-[8px] leading-4 text-black/70">Tupac: California DMV, public domain. Snoop Dogg: Eva Rinaldi, <a className="underline" href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank" rel="noreferrer">CC BY-SA 2.0</a>.</figcaption>
