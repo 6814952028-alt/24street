@@ -59,14 +59,17 @@ function DepthHero({ onShop, onMenu }) {
 const categoryItems = ["all", "new-arrival", "t-shirts", "hoodies", "sweatshirts", "baggy-pants", "shorts", "bags", "headwear", "underwear", "accessories"];
 const productGridVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 const productCardVariants = { hidden: { opacity: 0, y: 22 }, visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } };
-const normalizeCategory = value => String(value ?? "").toLowerCase().trim();
+const normalizeCategory = value => String(value ?? "").toLowerCase().trim().replace(/\s+/g, "-");
 const matchesCategory = (product, category) => {
   const selectedCategory = normalizeCategory(category);
-  const productCategory = normalizeCategory(product.category);
-  return !selectedCategory
-    || selectedCategory === "all"
-    || (selectedCategory === "new-arrival" && (product.label === "NEW" || product.featured))
-    || productCategory === selectedCategory;
+  if (!selectedCategory || selectedCategory === "all" || selectedCategory === "all-products") return true;
+  if (selectedCategory === "new-arrival") return product.label === "NEW" || product.featured;
+  if (!product.category) return false;
+  const productCategory = normalizeCategory(product.category).replace(/[^a-z0-9]/g, "");
+  const targetCategory = selectedCategory.replace(/[^a-z0-9]/g, "");
+  return productCategory === targetCategory
+    || productCategory.includes(targetCategory)
+    || targetCategory.includes(productCategory);
 };
 
 function CategoryMenu({ products, active, onChoose, onClose, language }) {
@@ -219,7 +222,7 @@ export default function App() {
     <div className="mx-auto max-w-screen-2xl">
       <div className="flex flex-col justify-between gap-7 border-b border-black pb-7 md:flex-row md:items-end md:pb-9">
         <div><p className="font-mono text-[10px] tracking-[.2em]">01 / LATEST GOODS</p><h2 className="mt-4 font-display text-[clamp(4rem,8vw,7.5rem)] leading-[.78] tracking-[-.055em]">THE <span className="font-serif font-normal italic">DROP</span></h2></div>
-        <div className="flex flex-wrap gap-0" role="group" aria-label="Filter products">{filters.map(category => <motion.button key={category} type="button" aria-pressed={normalizeCategory(filter) === normalizeCategory(category)} whileTap={{ scale: 0.97 }} onClick={() => setFilter(category)} className={`rounded-none border border-black px-4 py-2.5 text-[9px] tracking-[.16em] transition-colors duration-200 ${normalizeCategory(filter) === normalizeCategory(category) ? "bg-black text-[#F2EFE9]" : "bg-transparent text-black hover:bg-black hover:text-[#F2EFE9]"}`}>{(categoryNames(language)[category] || category).toUpperCase()}</motion.button>)}</div>
+        <div className="flex flex-wrap gap-0" role="group" aria-label="Filter products">{filters.map(category => <motion.button key={category} type="button" aria-pressed={normalizeCategory(filter) === normalizeCategory(category)} whileTap={{ scale: 0.97 }} onClick={() => setFilter(normalizeCategory(category))} className={`rounded-none border border-black px-4 py-2.5 text-[9px] tracking-[.16em] transition-colors duration-200 ${normalizeCategory(filter) === normalizeCategory(category) ? "bg-black text-[#F2EFE9]" : "bg-transparent text-black hover:bg-black hover:text-[#F2EFE9]"}`}>{(categoryNames(language)[category] || category).toUpperCase()}</motion.button>)}</div>
       </div>
       <div className="mt-8 min-h-[450px] md:mt-10">
         {catalogStatus === "loading" ? <p className="flex min-h-[450px] items-center justify-center text-center text-sm" role="status">{t(language, "loading")}</p>
@@ -232,5 +235,5 @@ export default function App() {
   <button onClick={() => setMenuOpen(true)} className="fixed bottom-5 left-5 z-30 border border-ink bg-paper px-4 py-3 text-[10px] tracking-[.16em] shadow-[4px_4px_0_#151515] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none">{t(language, "categories").toUpperCase()} +</button>
   <DepthHero onShop={() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })} onMenu={() => setMenuOpen(true)} />
   <section id="story" className="relative border-y-2 border-ink bg-sage px-8 py-24 md:px-[18vw]"><div className="absolute left-[7vw] top-6 -rotate-3 bg-sun px-2 py-2 text-[10px]">NO FAST FASHION</div><p className="font-serif text-[clamp(42px,5vw,72px)] leading-none">Clothes with a little more <em>character,</em> made for the long way around.</p></section></main>
-  <footer className="flex justify-between gap-3 px-5 py-5 text-[9px] md:px-[5vw]"><span>© 2024 24 STREET</span><span>BANGKOK / EVERYWHERE</span><span>IG · LINE · EMAIL</span></footer><AnimatePresence mode="sync">{bagOpen && <BagDrawer key="bag" items={bagItems} language={language} onChange={items => { setBagItems(items); setBag(items.reduce((total, item) => total + item.quantity, 0)); }} onClose={() => setBagOpen(false)} onCheckout={beginCheckout} />}{menuOpen && <CategoryMenu key="categories" products={products} active={filter} language={language} onClose={() => setMenuOpen(false)} onChoose={category => { setFilter(category); setMenuOpen(false); requestAnimationFrame(() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })); }} />}{checkoutOpen && <CheckoutPanel key="checkout" items={bagItems} user={user} language={language} onClose={() => setCheckoutOpen(false)} onOrderCreated={() => { setBagItems([]); setBag(0); }} />}{accountOpen && <AccountPanel key="account" user={user} language={language} onClose={() => { setAccountOpen(false); loadProducts(); }} onSignedIn={signedIn} onLogout={signedOut} />}{selected && <ProductDialog key={selected.id} language={language} product={selected} bagItems={bagItems} onClose={() => setSelected(null)} onAdd={addToBag} />}</AnimatePresence></>;
+  <footer className="flex justify-between gap-3 px-5 py-5 text-[9px] md:px-[5vw]"><span>© 2024 24 STREET</span><span>BANGKOK / EVERYWHERE</span><span>IG · LINE · EMAIL</span></footer><AnimatePresence mode="sync">{bagOpen && <BagDrawer key="bag" items={bagItems} language={language} onChange={items => { setBagItems(items); setBag(items.reduce((total, item) => total + item.quantity, 0)); }} onClose={() => setBagOpen(false)} onCheckout={beginCheckout} />}{menuOpen && <CategoryMenu key="categories" products={products} active={filter} language={language} onClose={() => setMenuOpen(false)} onChoose={category => { setFilter(normalizeCategory(category)); setMenuOpen(false); requestAnimationFrame(() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })); }} />}{checkoutOpen && <CheckoutPanel key="checkout" items={bagItems} user={user} language={language} onClose={() => setCheckoutOpen(false)} onOrderCreated={() => { setBagItems([]); setBag(0); }} />}{accountOpen && <AccountPanel key="account" user={user} language={language} onClose={() => { setAccountOpen(false); loadProducts(); }} onSignedIn={signedIn} onLogout={signedOut} />}{selected && <ProductDialog key={selected.id} language={language} product={selected} bagItems={bagItems} onClose={() => setSelected(null)} onAdd={addToBag} />}</AnimatePresence></>;
 }
