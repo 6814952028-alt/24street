@@ -148,7 +148,7 @@ export default function App() {
   const [lang, setLang] = useState(() => String(stored("24street_language", "TH")).toUpperCase() === "EN" ? "EN" : "TH");
   const reduceMotion = useReducedMotion();
   const language = lang;
-  const [filter, setFilter] = useState("all"); const [selected, setSelected] = useState(null); const [bag, setBag] = useState(() => stored("24street_bag", []).reduce((total, item) => total + item.quantity, 0)); const [bagOpen, setBagOpen] = useState(false); const [checkoutOpen, setCheckoutOpen] = useState(false); const [checkoutAfterLogin, setCheckoutAfterLogin] = useState(false); const [accountOpen, setAccountOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false); const [user, setUser] = useState(() => stored("24street_user", null)); const [products, setProducts] = useState([]); const [catalogStatus, setCatalogStatus] = useState("loading"); const [catalogError, setCatalogError] = useState(""); const [bagItems, setBagItems] = useState(() => stored("24street_bag", []));
+  const [selectedCategory, setSelectedCategory] = useState("all"); const [selected, setSelected] = useState(null); const [bag, setBag] = useState(() => stored("24street_bag", []).reduce((total, item) => total + item.quantity, 0)); const [bagOpen, setBagOpen] = useState(false); const [checkoutOpen, setCheckoutOpen] = useState(false); const [checkoutAfterLogin, setCheckoutAfterLogin] = useState(false); const [accountOpen, setAccountOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false); const [user, setUser] = useState(() => stored("24street_user", null)); const [allProducts, setAllProducts] = useState([]); const [catalogStatus, setCatalogStatus] = useState("loading"); const [catalogError, setCatalogError] = useState(""); const [bagItems, setBagItems] = useState(() => stored("24street_bag", []));
   const loadProducts = () => {
     setCatalogStatus("loading");
     setCatalogError("");
@@ -169,7 +169,11 @@ export default function App() {
         details: product.materials || [],
         variants: Array.isArray(product.variants) ? product.variants : [],
       }));
-      setProducts(mapped);
+      if (mapped.length === 0) {
+        setCatalogStatus("ready");
+        return;
+      }
+      setAllProducts(mapped);
       setCatalogStatus("ready");
       setBagItems(items => items.map(item => {
         const product = mapped.find(entry => entry.id === String(item.id));
@@ -177,18 +181,17 @@ export default function App() {
         return product && variant ? { ...item, id: product.id, name: product.name, price: product.price, size: variant.size, color: variant.color, stock: Number(variant.stock) || 0, available: product.status === "active", image: product.images?.[0] || "" } : { ...item, available: false, stock: 0 };
       }));
     }).catch(error => {
-      setProducts([]);
-      setCatalogStatus("error");
-      setCatalogError(error.message || "The catalog could not be loaded.");
+      setCatalogStatus(allProducts.length ? "ready" : "error");
+      if (!allProducts.length) setCatalogError(error.message || "The catalog could not be loaded.");
     });
   };
   useEffect(() => {
     loadProducts();
   }, []);
   useEffect(() => {
-    setProducts(current => current.map(product => ({ ...product, name: language === "TH" ? product.nameTh : (product.nameEn || product.nameTh) })));
+    setAllProducts(current => current.map(product => ({ ...product, name: language === "TH" ? product.nameTh : (product.nameEn || product.nameTh) })));
     setBagItems(current => current.map(item => {
-      const product = products.find(entry => entry.id === String(item.id));
+      const product = allProducts.find(entry => entry.id === String(item.id));
       return product ? { ...item, name: language === "TH" ? product.nameTh : (product.nameEn || product.nameTh) } : item;
     }));
   }, [language]);
@@ -197,7 +200,7 @@ export default function App() {
   useEffect(() => { const query = new URLSearchParams(window.location.search); if (query.get("checkout") === "success") { setBagItems([]); setBag(0); window.history.replaceState({}, "", window.location.pathname + window.location.hash); } }, []);
   useEffect(() => { if (user?.role === "admin") setAccountOpen(true); }, [user]);
   const filters = categoryItems;
-  const shown = products.filter(product => matchesCategory(product, filter));
+  const displayedProducts = allProducts.filter(product => matchesCategory(product, selectedCategory));
   const addToBag = (product, variant, quantity) => {
     if (!variant?.sku || Number(variant.stock) < quantity) return "This variant is not available in the requested quantity.";
     const current = bagItems.find(item => item.id === product.id && item.sku === variant.sku)?.quantity || 0;
@@ -222,12 +225,12 @@ export default function App() {
     <div className="mx-auto max-w-screen-2xl">
       <div className="flex flex-col justify-between gap-7 border-b border-black pb-7 md:flex-row md:items-end md:pb-9">
         <div><p className="font-mono text-[10px] tracking-[.2em]">01 / LATEST GOODS</p><h2 className="mt-4 font-display text-[clamp(4rem,8vw,7.5rem)] leading-[.78] tracking-[-.055em]">THE <span className="font-serif font-normal italic">DROP</span></h2></div>
-        <div className="flex flex-wrap gap-0" role="group" aria-label="Filter products">{filters.map(category => <motion.button key={category} type="button" aria-pressed={normalizeCategory(filter) === normalizeCategory(category)} whileTap={{ scale: 0.97 }} onClick={() => setFilter(normalizeCategory(category))} className={`rounded-none border border-black px-4 py-2.5 text-[9px] tracking-[.16em] transition-colors duration-200 ${normalizeCategory(filter) === normalizeCategory(category) ? "bg-black text-[#F2EFE9]" : "bg-transparent text-black hover:bg-black hover:text-[#F2EFE9]"}`}>{(categoryNames(language)[category] || category).toUpperCase()}</motion.button>)}</div>
+        <div className="flex flex-wrap gap-0" role="group" aria-label="Filter products">{filters.map(category => <motion.button key={category} type="button" aria-pressed={normalizeCategory(selectedCategory) === normalizeCategory(category)} whileTap={{ scale: 0.97 }} onClick={() => setSelectedCategory(normalizeCategory(category))} className={`rounded-none border border-black px-4 py-2.5 text-[9px] tracking-[.16em] transition-colors duration-200 ${normalizeCategory(selectedCategory) === normalizeCategory(category) ? "bg-black text-[#F2EFE9]" : "bg-transparent text-black hover:bg-black hover:text-[#F2EFE9]"}`}>{(categoryNames(language)[category] || category).toUpperCase()}</motion.button>)}</div>
       </div>
       <div className="mt-8 min-h-[450px] md:mt-10">
         {catalogStatus === "loading" ? <p className="flex min-h-[450px] items-center justify-center text-center text-sm" role="status">{t(language, "loading")}</p>
           : catalogStatus === "error" ? <div className="flex min-h-[450px] flex-col items-center justify-center text-center"><p role="alert" className="text-sm text-red-700">{catalogError}</p><button onClick={loadProducts} className="mt-4 border border-black px-5 py-3 text-xs">{t(language, "retry").toUpperCase()}</button></div>
-          : shown.length ? <motion.div variants={productGridVariants} initial={reduceMotion ? false : "hidden"} whileInView={reduceMotion ? undefined : "visible"} viewport={{ once: true, amount: 0.12 }} className="grid grid-cols-2 border-l border-t border-black md:grid-cols-3 lg:grid-cols-4">{shown.map(product => <motion.div key={product.id} variants={productCardVariants} transition={{ duration: 0.3 }} className="group border border-black p-3 transition-all duration-300 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none md:p-4"><article className="group relative cursor-pointer rounded-none" onClick={() => setSelected(product)}><div className="relative aspect-[3/4] overflow-hidden border border-black bg-[#EAE6DF]"><Garment product={product} /><span className="absolute left-2 top-2 border border-black bg-[#F2EFE9] px-2 py-1 text-[8px] font-mono tracking-[.14em]">{product.label || "24 STREET"}</span><span className="absolute bottom-2 right-2 grid h-9 w-9 translate-y-2 place-items-center border border-black bg-[#F2EFE9] text-lg opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">&#8599;</span><span className="absolute inset-x-0 bottom-0 translate-y-full bg-black py-2 text-center font-mono text-xs font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-y-0">VIEW DETAILS</span></div><div className="flex items-start justify-between gap-3 pt-3"><div><p className="font-mono text-[9px] uppercase tracking-[.16em]">{categoryNames(language)[product.category] || product.category}</p><h3 className="mt-1.5 font-serif text-lg font-black uppercase leading-tight tracking-tight md:text-xl">{product.name}</h3></div><p className="pt-2 font-mono text-[10px]">฿{product.price.toLocaleString("th-TH")}</p></div></article></motion.div>)}</motion.div>
+          : displayedProducts.length ? <motion.div variants={productGridVariants} initial={reduceMotion ? false : "hidden"} whileInView={reduceMotion ? undefined : "visible"} viewport={{ once: true, amount: 0.12 }} className="grid grid-cols-2 border-l border-t border-black md:grid-cols-3 lg:grid-cols-4">{displayedProducts.map(product => <motion.div key={product.id} variants={productCardVariants} transition={{ duration: 0.3 }} className="group border border-black p-3 transition-all duration-300 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none md:p-4"><article className="group relative cursor-pointer rounded-none" onClick={() => setSelected(product)}><div className="relative aspect-[3/4] overflow-hidden border border-black bg-[#EAE6DF]"><Garment product={product} /><span className="absolute left-2 top-2 border border-black bg-[#F2EFE9] px-2 py-1 text-[8px] font-mono tracking-[.14em]">{product.label || "24 STREET"}</span><span className="absolute bottom-2 right-2 grid h-9 w-9 translate-y-2 place-items-center border border-black bg-[#F2EFE9] text-lg opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">&#8599;</span><span className="absolute inset-x-0 bottom-0 translate-y-full bg-black py-2 text-center font-mono text-xs font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-y-0">VIEW DETAILS</span></div><div className="flex items-start justify-between gap-3 pt-3"><div><p className="font-mono text-[9px] uppercase tracking-[.16em]">{categoryNames(language)[product.category] || product.category}</p><h3 className="mt-1.5 font-serif text-lg font-black uppercase leading-tight tracking-tight md:text-xl">{product.name}</h3></div><p className="pt-2 font-mono text-[10px]">฿{product.price.toLocaleString("th-TH")}</p></div></article></motion.div>)}</motion.div>
           : <p className="flex min-h-[450px] items-center justify-center text-center text-sm">{t(language, "emptyCategory")}</p>}
       </div>
     </div>
@@ -235,5 +238,5 @@ export default function App() {
   <button onClick={() => setMenuOpen(true)} className="fixed bottom-5 left-5 z-30 border border-ink bg-paper px-4 py-3 text-[10px] tracking-[.16em] shadow-[4px_4px_0_#151515] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none">{t(language, "categories").toUpperCase()} +</button>
   <DepthHero onShop={() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })} onMenu={() => setMenuOpen(true)} />
   <section id="story" className="relative border-y-2 border-ink bg-sage px-8 py-24 md:px-[18vw]"><div className="absolute left-[7vw] top-6 -rotate-3 bg-sun px-2 py-2 text-[10px]">NO FAST FASHION</div><p className="font-serif text-[clamp(42px,5vw,72px)] leading-none">Clothes with a little more <em>character,</em> made for the long way around.</p></section></main>
-  <footer className="flex justify-between gap-3 px-5 py-5 text-[9px] md:px-[5vw]"><span>© 2024 24 STREET</span><span>BANGKOK / EVERYWHERE</span><span>IG · LINE · EMAIL</span></footer><AnimatePresence mode="sync">{bagOpen && <BagDrawer key="bag" items={bagItems} language={language} onChange={items => { setBagItems(items); setBag(items.reduce((total, item) => total + item.quantity, 0)); }} onClose={() => setBagOpen(false)} onCheckout={beginCheckout} />}{menuOpen && <CategoryMenu key="categories" products={products} active={filter} language={language} onClose={() => setMenuOpen(false)} onChoose={category => { setFilter(normalizeCategory(category)); setMenuOpen(false); requestAnimationFrame(() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })); }} />}{checkoutOpen && <CheckoutPanel key="checkout" items={bagItems} user={user} language={language} onClose={() => setCheckoutOpen(false)} onOrderCreated={() => { setBagItems([]); setBag(0); }} />}{accountOpen && <AccountPanel key="account" user={user} language={language} onClose={() => { setAccountOpen(false); loadProducts(); }} onSignedIn={signedIn} onLogout={signedOut} />}{selected && <ProductDialog key={selected.id} language={language} product={selected} bagItems={bagItems} onClose={() => setSelected(null)} onAdd={addToBag} />}</AnimatePresence></>;
+  <footer className="flex justify-between gap-3 px-5 py-5 text-[9px] md:px-[5vw]"><span>© 2024 24 STREET</span><span>BANGKOK / EVERYWHERE</span><span>IG · LINE · EMAIL</span></footer><AnimatePresence mode="sync">{bagOpen && <BagDrawer key="bag" items={bagItems} language={language} onChange={items => { setBagItems(items); setBag(items.reduce((total, item) => total + item.quantity, 0)); }} onClose={() => setBagOpen(false)} onCheckout={beginCheckout} />}{menuOpen && <CategoryMenu key="categories" products={allProducts} active={selectedCategory} language={language} onClose={() => setMenuOpen(false)} onChoose={category => { setSelectedCategory(normalizeCategory(category)); setMenuOpen(false); requestAnimationFrame(() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })); }} />}{checkoutOpen && <CheckoutPanel key="checkout" items={bagItems} user={user} language={language} onClose={() => setCheckoutOpen(false)} onOrderCreated={() => { setBagItems([]); setBag(0); }} />}{accountOpen && <AccountPanel key="account" user={user} language={language} onClose={() => { setAccountOpen(false); loadProducts(); }} onSignedIn={signedIn} onLogout={signedOut} />}{selected && <ProductDialog key={selected.id} language={language} product={selected} bagItems={bagItems} onClose={() => setSelected(null)} onAdd={addToBag} />}</AnimatePresence></>;
 }
