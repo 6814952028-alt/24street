@@ -1,11 +1,12 @@
 const express = require("express");
 const { protect, requireAdmin } = require("../middlewares/auth.middleware");
-const { createOrder, getUserOrders, getAllOrders, updateOrderStatus, upload, uploadTransferSlip, viewTransferSlip } = require("../controllers/order.controller");
+const { createOrder, getPaymentInfo, getUserOrders, getAllOrders, updateOrderStatus, upload, uploadTransferSlip, viewTransferSlip } = require("../controllers/order.controller");
 const router = express.Router();
 router.use(protect);
 router.get("/user", getUserOrders);
+router.get("/payment-info", getPaymentInfo);
 router.get("/", requireAdmin, getAllOrders);
-router.post("/", createOrder);
+router.post("/", upload.single("slip"), createOrder);
 router.patch("/:id/status", requireAdmin, updateOrderStatus);
 router.post("/:id/slip", upload.single("slip"), uploadTransferSlip);
 router.get("/:id/slip", requireAdmin, viewTransferSlip);

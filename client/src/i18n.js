@@ -18,9 +18,18 @@ const messages = {
 Object.assign(messages.th, {
   bank_transfer: "โอนเงินผ่านธนาคาร", card: "บัตรเครดิต / เดบิต", promptpayDetail: "ชำระผ่านคิวอาร์อย่างปลอดภัย", cardDetail: "ชำระด้วยบัตรอย่างปลอดภัย", bankDetail: "อัปโหลดสลิปโอนเงิน", freeShipping: "ฟรีเมื่อซื้อครบ 1,500 บาท",
   name: "ชื่อ", password: "รหัสผ่าน", signIn: "เข้าสู่ระบบ", createAccount: "สร้างบัญชี", welcomeBack: "ยินดีต้อนรับกลับ", joinClub: "สมัครสมาชิก", saveProfile: "บันทึกข้อมูล", logOut: "ออกจากระบบ", members: "สมาชิก", profileSaved: "บันทึกแล้ว",
+  switchLanguage: "เปลี่ยนภาษา", free: "ฟรี", paymentSlipPrompt: "เลือกสลิปโอนเงินได้เลย เมื่อสร้างคำสั่งซื้อแล้ว คุณจะอัปโหลดสลิปเพื่อแนบกับคำสั่งซื้อได้", selected: "เลือกแล้ว", stockConfirmed: "ร้านค้าจะยืนยันราคาและสต็อกอีกครั้ง", placingOrder: "กำลังส่งคำสั่งซื้อ...", optional: "ไม่บังคับ",
+});
+Object.assign(messages.en, {
+  switchLanguage: "Switch language", free: "Free", paymentSlipPrompt: "Select your transfer slip now. It will be attached securely when your order is placed.", selected: "Selected", stockConfirmed: "Final prices and stock are confirmed by the store.", placingOrder: "Placing order...", optional: "Optional",
+  bankName: "Bank", accountNumber: "Account number", accountName: "Account name", promptpayNumber: "PromptPay number", promptpayQr: "PromptPay QR placeholder", paymentInfoMissing: "Store payment details are not configured. Contact the store before transferring.", notConfigured: "Not configured", paymentSlipRequired: "Upload your transfer slip before confirming the order.", invalidSlip: "Choose an image file up to 5 MB.", slipReceived: "Your transfer slip was attached to this order.", orderSuccessful: "Order successful", orderId: "Order ID",
+});
+Object.assign(messages.th, {
+  bankName: "ธนาคาร", accountNumber: "เลขที่บัญชี", accountName: "ชื่อบัญชี", promptpayNumber: "หมายเลขพร้อมเพย์", promptpayQr: "พื้นที่แสดง QR พร้อมเพย์", paymentInfoMissing: "ยังไม่ได้ตั้งค่าข้อมูลการชำระเงิน กรุณาติดต่อร้านค้าก่อนโอนเงิน", notConfigured: "ยังไม่ได้ตั้งค่า", paymentSlipRequired: "กรุณาแนบสลิปก่อนยืนยันคำสั่งซื้อ", invalidSlip: "กรุณาเลือกไฟล์รูปภาพขนาดไม่เกิน 5 MB", slipReceived: "แนบสลิปการโอนเงินกับคำสั่งซื้อแล้ว", orderSuccessful: "คำสั่งซื้อเสร็จสมบูรณ์", orderId: "หมายเลขคำสั่งซื้อ",
 });
 
-export const t = (language, key) => messages[language]?.[key] || messages.en[key] || key;
+const localeKey = language => String(language || "TH").toUpperCase() === "EN" ? "en" : "th";
+export const t = (language, key) => messages[localeKey(language)]?.[key] || messages.en[key] || key;
 export const categoryNames = language => ({
   all: t(language, "all"), "new-arrival": t(language, "newArrival"), "t-shirts": t(language, "tees"), hoodies: t(language, "hoodies"), sweatshirts: t(language, "sweatshirts"), "baggy-pants": t(language, "pants"), shorts: t(language, "shorts"), bags: t(language, "bags"), headwear: t(language, "headwear"), underwear: t(language, "underwear"), accessories: t(language, "accessories"), jackets: t(language, "jackets"),
 });

@@ -14,9 +14,17 @@ const upload = multer({
 
 router.post("/", protect, requireAdmin, upload.single("file"), async (req, res, next) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "An image file is required" });
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.status(503).json({ message: "Vercel Blob is not configured" });
+    const imagesInput = req.body.images;
+    let images = [];
+    if (typeof imagesInput === "string") {
+      try { images = JSON.parse(imagesInput); } catch { images = imagesInput.split(","); }
+    } else if (Array.isArray(imagesInput)) images = imagesInput;
+    if (!Array.isArray(images)) images = [];
+    images = images.map(url => String(url).trim()).filter(Boolean);
+
+    // URL-only requests do not need Blob. A missing token also falls back to supplied URLs.
+    if (!req.file || !process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(200).json({ images });
     }
 
     const blob = await put(`products/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
@@ -24,7 +32,7 @@ router.post("/", protect, requireAdmin, upload.single("file"), async (req, res, 
       contentType: req.file.mimetype,
       addRandomSuffix: true,
     });
-    res.status(201).json({ url: blob.url });
+    res.status(201).json({ url: blob.url, images });
   } catch (error) {
     next(error);
   }

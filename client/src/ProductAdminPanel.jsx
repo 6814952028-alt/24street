@@ -6,7 +6,8 @@ const auth = () => ({ "Content-Type": "application/json", Authorization: `Bearer
 const blank = { name: "", slug: "", category: "t-shirts", price: "", compareAtPrice: "", description: "", materials: "", care: "", images: "", variants: "", featured: false, status: "active" };
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const toForm = product => ({ ...product, materials: (product.materials || []).join(", "), care: (product.care || []).join(", "), images: (product.images || []).join(", "), variants: JSON.stringify(product.variants || [], null, 2) });
-const payloadFor = form => ({ ...form, price: Number(form.price), compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined, materials: form.materials.split(",").map(x => x.trim()).filter(Boolean), care: form.care.split(",").map(x => x.trim()).filter(Boolean), images: form.images.split(",").map(x => x.trim()).filter(Boolean), variants: form.variants.trim() ? JSON.parse(form.variants) : [] });
+const defaultVariants = slug => [{ size: "Free Size", color: "Default", sku: `${slug || "PRODUCT"}-FREE-SIZE`.toUpperCase(), stock: 100 }];
+const payloadFor = form => ({ ...form, price: Number(form.price), compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined, materials: form.materials.split(",").map(x => x.trim()).filter(Boolean), care: form.care.split(",").map(x => x.trim()).filter(Boolean), images: form.images.split(",").map(x => x.trim()).filter(Boolean), variants: form.variants.trim() ? JSON.parse(form.variants) : defaultVariants(form.slug) });
 
 export default function ProductAdminPanel() {
   const [products, setProducts] = useState([]);
@@ -14,6 +15,8 @@ export default function ProductAdminPanel() {
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const load = () => fetch(`${api}/api/products/admin/all`, { headers: auth() }).then(r => r.json()).then(data => setProducts(Array.isArray(data) ? data : []));
   useEffect(() => { load(); }, []);
@@ -21,41 +24,48 @@ export default function ProductAdminPanel() {
     const { name, value, type, checked } = event.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value, ...(name === "name" && !editing ? { slug: slugify(value) } : {}) });
   };
-  const uploadImage = async event => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setUploading(true);
+  const uploadImage = event => {
+    setSelectedFile(event.target.files[0] || null);
     setMessage("");
+  };
+  const uploadSelectedFile = async images => {
+    if (!selectedFile) return images;
+    setUploading(true);
     try {
       const body = new FormData();
-      body.append("file", file);
+      body.append("file", selectedFile);
+      body.append("images", JSON.stringify(images));
       const response = await fetch(`${api}/api/uploads`, { method: "POST", headers: { Authorization: auth().Authorization }, body });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Unable to upload image");
-      setForm(current => ({ ...current, images: [current.images, data.url].filter(Boolean).join(", ") }));
-      setMessage("Image uploaded");
+      return data.url ? [...images, data.url] : (Array.isArray(data.images) ? data.images : images);
     } catch (error) {
-      setMessage(`Error: ${error.message}`);
+      throw new Error(error.message === "Vercel Blob is not configured" ? "Blob upload unavailable. Add an image URL or configure Blob." : error.message);
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   };
   const submit = async event => {
     event.preventDefault();
+    if (uploading) return;
     try {
-      const response = await fetch(`${api}/api/products${editing ? `/${editing}` : ""}`, { method: editing ? "PATCH" : "POST", headers: auth(), body: JSON.stringify(payloadFor(form)) });
+      const payload = payloadFor(form);
+      // With no explicitly selected file, image URLs go directly to product creation.
+      if (selectedFile) payload.images = await uploadSelectedFile(payload.images);
+      const response = await fetch(`${api}/api/products${editing ? `/${editing}` : ""}`, { method: editing ? "PATCH" : "POST", headers: auth(), body: JSON.stringify(payload) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Unable to save product");
-      setMessage(editing ? "Product updated" : "Product added");
+      setMessage(editing ? "Product updated successfully" : "Product added successfully");
       setForm(blank);
       setEditing(null);
+      setSelectedFile(null);
+      setFileInputKey(key => key + 1);
       load();
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     }
   };
-  const edit = product => { setEditing(product._id); setForm(toForm(product)); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const edit = product => { setEditing(product._id); setForm(toForm(product)); setSelectedFile(null); setFileInputKey(key => key + 1); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const archive = async id => {
     if (!window.confirm("Archive this product? It will disappear from the storefront.")) return;
     const response = await fetch(`${api}/api/products/${id}`, { method: "DELETE", headers: auth() });
@@ -76,8 +86,8 @@ export default function ProductAdminPanel() {
       <label className="text-[10px] md:col-span-2">DESCRIPTION<textarea required name="description" value={form.description} onChange={update} className="mt-1 min-h-20 w-full border border-ink bg-paper p-2 text-sm" /></label>
       <label className="text-[10px] md:col-span-2">MATERIALS (comma separated)<input name="materials" value={form.materials} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
       <div className="md:col-span-2">
-        <label className="text-[10px]">IMAGE URLS (comma separated)<input name="images" value={form.images} onChange={update} className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
-        <label className="mt-2 block text-[10px]">UPLOAD IMAGE<input type="file" accept="image/*" onChange={uploadImage} disabled={uploading} className="mt-1 block w-full text-sm" /></label>
+        <label className="text-[10px]">IMAGE URLS (comma separated)<input name="images" value={form.images} onChange={update} placeholder="https://…" className="mt-1 w-full border border-ink bg-paper p-2 text-sm" /></label>
+        <label className="mt-2 block text-[10px]">UPLOAD IMAGE (OPTIONAL)<input key={fileInputKey} type="file" accept="image/*" onChange={uploadImage} disabled={uploading} className="mt-1 block w-full text-sm" /></label>
       </div>
       <label className="text-[10px] md:col-span-2">VARIANTS JSON <span className="normal-case">[{`{"size":"M","color":"Black","sku":"TEE-BLK-M","stock":10}`} ]</span><textarea name="variants" value={form.variants} onChange={update} className="mt-1 min-h-28 w-full border border-ink bg-paper p-2 font-mono text-xs" /></label>
       <div className="flex gap-3 md:col-span-2"><button className="bg-ink px-5 py-3 text-xs text-paper">{editing ? "SAVE CHANGES" : "ADD PRODUCT"}</button>{editing && <button type="button" onClick={() => { setEditing(null); setForm(blank); }} className="border border-ink px-5 py-3 text-xs">CANCEL</button>}{message && <p className="self-center text-xs">{message}</p>}</div>

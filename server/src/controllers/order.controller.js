@@ -9,6 +9,26 @@ const Order = require("../models/order.model");
 const { PAYMENT_METHODS, SHIPPING_METHODS, totalsFor, createOrderNumber, validateAddress } = require("../services/checkout.service");
 const fail = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 const appOrigin = () => (process.env.APP_URL || (process.env.CLIENT_ORIGIN || "http://localhost:5173").split(",")[0]).replace(/\/$/, "");
+const parseJsonField = (value, fallback) => {
+  if (typeof value !== "string") return value ?? fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+};
+const paymentInfo = () => ({
+  bankName: process.env.BANK_NAME || "",
+  accountNumber: process.env.BANK_ACCOUNT_NUMBER || "",
+  accountName: process.env.BANK_ACCOUNT_NAME || "",
+  promptpayNumber: process.env.PROMPTPAY_NUMBER || "",
+  promptpayQrUrl: process.env.PROMPTPAY_QR_URL || "",
+  instructions: process.env.BANK_TRANSFER_INSTRUCTIONS || "",
+});
+const publicOrder = order => {
+  const value = order?.toObject ? order.toObject() : { ...order };
+  if (value?.paymentDetails) {
+    delete value.paymentDetails.transferSlipData;
+    delete value.paymentDetails.transferSlipContentType;
+  }
+  return value;
+};
 
 const stripePost = async (path, params, key) => {
   if (!process.env.STRIPE_SECRET_KEY) throw fail("Online payment is not configured", 503);
@@ -69,6 +89,8 @@ const createOrder = async (req, res, next) => {
   let session;
   try {
     const body = req.body || {};
+    body.shippingAddress = parseJsonField(body.shippingAddress, {});
+    body.items = parseJsonField(body.items, []);
     const addressError = validateAddress(body.shippingAddress);
     if (addressError) return res.status(400).json({ message: addressError });
     const shippingMethod = body.shippingMethod || "standard";
@@ -76,6 +98,7 @@ const createOrder = async (req, res, next) => {
     if (!SHIPPING_METHODS.includes(shippingMethod) || !PAYMENT_METHODS.includes(paymentMethod)) return res.status(400).json({ message: "Choose a valid delivery and payment method" });
     if ((paymentMethod === "cod") !== (shippingMethod === "cod")) return res.status(400).json({ message: "Cash on delivery must use COD shipping" });
     if (["card", "promptpay"].includes(paymentMethod) && !process.env.STRIPE_SECRET_KEY) return res.status(503).json({ message: "Online payment is not configured yet" });
+    if (paymentMethod === "bank_transfer" && !req.file) return res.status(400).json({ message: "Upload your bank transfer slip to place this order" });
     const clientKey = String(body.idempotencyKey || "");
     if (clientKey.length < 16 || clientKey.length > 120) return res.status(400).json({ message: "A valid checkout idempotency key is required" });
     const idem = String(req.user._id) + ":" + clientKey;
@@ -109,7 +132,13 @@ const createOrder = async (req, res, next) => {
         if (result.modifiedCount !== 1) throw fail("Stock changed during checkout. Review your bag and try again.", 409);
       }
       const totals = totalsFor(items, shippingMethod);
-      [order] = await Order.create([{ orderNumber: createOrderNumber(), idempotencyKey: idem, userId: req.user._id, items, shippingAddress: { ...body.shippingAddress, email: body.shippingAddress.email.trim().toLowerCase() }, shippingMethod, ...totals, paymentStatus: "pending_payment", orderStatus: "pending", paymentDetails: { method: paymentMethod, transferInstructions: paymentMethod === "bank_transfer" ? (process.env.BANK_TRANSFER_INSTRUCTIONS || "Contact the store for bank transfer details before sending payment.") : "" } }], { session });
+      const paymentDetails = { method: paymentMethod, transferInstructions: paymentMethod === "bank_transfer" ? (process.env.BANK_TRANSFER_INSTRUCTIONS || "") : "" };
+      if (paymentMethod === "bank_transfer" && req.file) {
+        paymentDetails.transferSlipData = req.file.buffer;
+        paymentDetails.transferSlipContentType = req.file.mimetype;
+        paymentDetails.transferSubmittedAt = new Date();
+      }
+      [order] = await Order.create([{ orderNumber: createOrderNumber(), idempotencyKey: idem, userId: req.user._id, items, shippingAddress: { ...body.shippingAddress, email: body.shippingAddress.email.trim().toLowerCase() }, shippingMethod, ...totals, paymentStatus: "pending_payment", orderStatus: "pending", paymentDetails }], { session });
       if (cart) { cart.items = []; await cart.save({ session }); }
     });
     await session.endSession(); session = null;
@@ -122,22 +151,24 @@ const createOrder = async (req, res, next) => {
         await order.save(); checkoutUrl = checkout.url;
       } catch (error) { await setPaymentStatus(order._id, "failed"); throw error; }
     }
-    res.status(201).json({ order, checkoutUrl, bankTransferInstructions: order.paymentDetails.transferInstructions || "" });
+    res.status(201).json({ order: publicOrder(order), checkoutUrl, bankTransferInstructions: order.paymentDetails.transferInstructions || "", paymentInfo: paymentInfo() });
   } catch (error) {
     if (session?.inTransaction()) await session.abortTransaction().catch(() => {});
     if (session) await session.endSession().catch(() => {});
     if (error.code === 11000 && req.body?.idempotencyKey) {
       const order = await Order.findOne({ userId: req.user._id, idempotencyKey: String(req.user._id) + ":" + req.body.idempotencyKey });
       if (order && order.paymentStatus === "failed") return res.status(409).json({ message: "This payment attempt failed. Retry checkout to create a fresh order." });
-      if (order) return res.status(200).json({ order, checkoutUrl: order.paymentDetails.checkoutUrl || "" });
+      if (order) return res.status(200).json({ order: publicOrder(order), checkoutUrl: order.paymentDetails.checkoutUrl || "", paymentInfo: paymentInfo() });
     }
     next(error);
   }
 };
 
-const getUserOrders = async (req, res, next) => { try { res.json({ orders: await Order.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(100).lean() }); } catch (e) { next(e); } };
+const getPaymentInfo = (req, res) => res.json(paymentInfo());
+
+const getUserOrders = async (req, res, next) => { try { res.json({ orders: await Order.find({ userId: req.user._id }).select("-paymentDetails.transferSlipData").sort({ createdAt: -1 }).limit(100).lean() }); } catch (e) { next(e); } };
 const getAllOrders = async (req, res, next) => {
-  try { const filter = {}; if (["pending_payment", "paid", "failed"].includes(req.query.paymentStatus)) filter.paymentStatus = req.query.paymentStatus; if (["pending", "processing", "shipped", "delivered", "cancelled"].includes(req.query.orderStatus)) filter.orderStatus = req.query.orderStatus; res.json({ orders: await Order.find(filter).populate("userId", "name email").sort({ createdAt: -1 }).limit(200).lean() }); }
+  try { const filter = {}; if (["pending_payment", "paid", "failed"].includes(req.query.paymentStatus)) filter.paymentStatus = req.query.paymentStatus; if (["pending", "processing", "shipped", "delivered", "cancelled"].includes(req.query.orderStatus)) filter.orderStatus = req.query.orderStatus; res.json({ orders: await Order.find(filter).select("-paymentDetails.transferSlipData").populate("userId", "name email").sort({ createdAt: -1 }).limit(200).lean() }); }
   catch (e) { next(e); }
 };
 const updateOrderStatus = async (req, res, next) => {
@@ -192,26 +223,35 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const uploadTransferSlip = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: "Choose a JPG, PNG, or WebP slip up to 5 MB" });
-    if (!process.env.PAYMENT_SLIP_BLOB_TOKEN) return res.status(503).json({ message: "Private slip storage is not configured" });
     const order = await Order.findOne({ _id: req.params.id, userId: req.user._id });
     if (!order) return res.status(404).json({ message: "Order not found" });
     if (order.paymentDetails.method !== "bank_transfer" || order.paymentStatus !== "pending_payment" || order.orderStatus === "cancelled") return res.status(409).json({ message: "This order cannot accept a transfer slip" });
-    const blob = await put("payment-slips/" + order.orderNumber + "/" + Date.now(), req.file.buffer, { access: "private", contentType: req.file.mimetype, addRandomSuffix: true, token: process.env.PAYMENT_SLIP_BLOB_TOKEN });
-    order.paymentDetails.transferSlipUrl = blob.url; order.paymentDetails.transferSubmittedAt = new Date(); await order.save();
-    res.status(201).json({ order });
+    if (process.env.PAYMENT_SLIP_BLOB_TOKEN) {
+      const blob = await put("payment-slips/" + order.orderNumber + "/" + Date.now(), req.file.buffer, { access: "private", contentType: req.file.mimetype, addRandomSuffix: true, token: process.env.PAYMENT_SLIP_BLOB_TOKEN });
+      order.paymentDetails.transferSlipUrl = blob.url;
+      order.paymentDetails.transferSlipData = undefined;
+    } else {
+      order.paymentDetails.transferSlipData = req.file.buffer;
+      order.paymentDetails.transferSlipContentType = req.file.mimetype;
+    }
+    order.paymentDetails.transferSubmittedAt = new Date(); await order.save();
+    res.status(201).json({ order: publicOrder(order) });
   } catch (e) { next(e); }
 };
 const viewTransferSlip = async (req, res, next) => {
   try {
-    if (!process.env.PAYMENT_SLIP_BLOB_TOKEN) return res.status(503).json({ message: "Private slip storage is not configured" });
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).select("+paymentDetails.transferSlipData +paymentDetails.transferSlipContentType");
     if (!order) return res.status(404).json({ message: "Order not found" });
     const url = order.paymentDetails.transferSlipUrl;
-    if (!url) return res.status(404).json({ message: "No transfer slip was uploaded" });
-    const blob = await get(url, { access: "private", token: process.env.PAYMENT_SLIP_BLOB_TOKEN });
-    if (!blob || blob.statusCode !== 200) return res.status(404).json({ message: "Transfer slip not found" });
-    res.set({ "Content-Type": blob.blob.contentType, "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" });
-    Readable.fromWeb(blob.stream).pipe(res);
+    if (url && process.env.PAYMENT_SLIP_BLOB_TOKEN) {
+      const blob = await get(url, { access: "private", token: process.env.PAYMENT_SLIP_BLOB_TOKEN });
+      if (!blob || blob.statusCode !== 200) return res.status(404).json({ message: "Transfer slip not found" });
+      res.set({ "Content-Type": blob.blob.contentType, "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" });
+      return Readable.fromWeb(blob.stream).pipe(res);
+    }
+    if (!order.paymentDetails.transferSlipData) return res.status(404).json({ message: "No transfer slip was uploaded" });
+    res.set({ "Content-Type": order.paymentDetails.transferSlipContentType || "application/octet-stream", "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" });
+    return res.end(order.paymentDetails.transferSlipData);
   } catch (e) { next(e); }
 };
-module.exports = { createOrder, getUserOrders, getAllOrders, updateOrderStatus, stripeWebhook, upload, uploadTransferSlip, viewTransferSlip };
+module.exports = { createOrder, getPaymentInfo, getUserOrders, getAllOrders, updateOrderStatus, stripeWebhook, upload, uploadTransferSlip, viewTransferSlip };

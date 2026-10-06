@@ -11,6 +11,18 @@ const normalizeCategory = value => {
   return categoryAliases[key] || key;
 };
 
+const defaultVariants = slug => [{
+  size: "Free Size",
+  color: "Default",
+  sku: `${String(slug || "PRODUCT")}-FREE-SIZE`.toUpperCase(),
+  stock: 100,
+}];
+const normalizeProductInput = input => ({
+  ...input,
+  images: Array.isArray(input.images) ? input.images.map(url => String(url).trim()).filter(Boolean) : [],
+  variants: Array.isArray(input.variants) && input.variants.length ? input.variants : defaultVariants(input.slug),
+});
+
 const getProducts = async (req, res, next) => {
   try {
     const filter = { status: "active" };
@@ -18,7 +30,7 @@ const getProducts = async (req, res, next) => {
     if (req.query.featured === "true") filter.featured = true;
     if (req.query.q) filter.$text = { $search: req.query.q };
 
-    const products = await Product.find(filter).sort({ featured: -1, createdAt: -1 });
+    const products = await Product.find(filter).sort({ _id: -1 });
     res.json(products);
   } catch (error) { next(error); }
 };
@@ -33,14 +45,14 @@ const getProductBySlug = async (req, res, next) => {
 
 const createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const product = await Product.create(normalizeProductInput(req.body));
     res.status(201).json(product);
   } catch (error) { next(error); }
 };
 
 const getAdminProducts = async (req, res, next) => {
   try {
-    const products = await Product.find().sort({ updatedAt: -1 });
+    const products = await Product.find().sort({ _id: -1 });
     res.json(products);
   } catch (error) { next(error); }
 };
@@ -49,6 +61,8 @@ const updateProduct = async (req, res, next) => {
   try {
     const allowed = ["name", "slug", "category", "price", "compareAtPrice", "description", "materials", "care", "images", "variants", "featured", "status"];
     const changes = Object.fromEntries(allowed.filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
+    if (changes.images !== undefined) changes.images = Array.isArray(changes.images) ? changes.images.map(url => String(url).trim()).filter(Boolean) : [];
+    if (Array.isArray(changes.variants) && !changes.variants.length) changes.variants = defaultVariants(changes.slug || req.body.slug);
     const product = await Product.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true });
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
